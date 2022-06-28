@@ -10,12 +10,19 @@ static nvs_handle_t game_nvs;
 static pax_buf_t buf;
 xQueueHandle buttonQueue;
 
-#define JUMP_HEIGHT  -8
-#define GRAVITY       1.7
+#define JUMP_HEIGHT  -6
+#define GRAVITY       2.0
 #define HITBOX_RADIUS 15
-#define POLE_LENIENCE 5
+#define POLE_LENIENCE 7
 #define POLE_WIDTH    50
 #define EXIT_TIME     1000
+
+#define INITIAL_POLE_GAP  90
+#define MIN_POLE_GAP      50
+#define INITIAL_POLE_DIST 250
+#define MIN_POLE_DIST     70
+#define DIFF_INC_EVERY    1
+
 #define SHOW_HITBOXES(bard) (debug_state)
 #define DO_DEBUG(bard) ((bard)->paused && debug_state)
 
@@ -249,7 +256,8 @@ void ingame() {
     // Level position.
     bard.level_pos = 0;
     bard.level_vel = 5;
-    bard.pole_dist = 250;
+    bard.pole_dist = MIN_POLE_DIST;
+    bard.pole_gap  = MIN_POLE_GAP;
     
     // Initial pole.
     pole_t *poles  = malloc(sizeof(pole_t));
@@ -257,8 +265,8 @@ void ingame() {
         .prev      = NULL,
         .next      = NULL,
         .x         = 400,
-        .y         = 80,
-        .gap       = 70,
+        .y         = 100,
+        .gap       = bard.pole_gap,
         .variant   = 0,
         .counted   = false,
         .offscreen = false,
@@ -322,7 +330,7 @@ void ingame() {
                         .prev      = cur,
                         .next      = NULL,
                         .x         = cur->x + POLE_WIDTH + bard.pole_dist,
-                        .gap       = 70,
+                        .gap       = bard.pole_gap,
                         .variant   = 0,
                         .counted   = false,
                         .offscreen = false,
@@ -383,6 +391,7 @@ void ingame() {
             }
         }
         
+        // Input handling.
         rp2040_input_message_t msg;
         if (xQueueReceive(buttonQueue, &msg, 1) && msg.state) {
             if (msg.input == RP2040_INPUT_BUTTON_ACCEPT && bard.alive) {
@@ -393,14 +402,19 @@ void ingame() {
                 // Pause.
                 bard.paused = !bard.paused;
             } else if (msg.input == RP2040_INPUT_JOYSTICK_UP && DO_DEBUG(&bard)) {
+                // Debug: Move up.
                 bard.y -= 5;
             } else if (msg.input == RP2040_INPUT_JOYSTICK_DOWN && DO_DEBUG(&bard)) {
+                // Debug: Move down.
                 bard.y += 5;
             } else if (msg.input == RP2040_INPUT_JOYSTICK_LEFT && DO_DEBUG(&bard)) {
+                // Debug: Move left.
                 bard.level_pos -= 5;
             } else if (msg.input == RP2040_INPUT_JOYSTICK_RIGHT && DO_DEBUG(&bard)) {
+                // Debug: Move right.
                 bard.level_pos += 5;
             } else if (msg.input == RP2040_INPUT_JOYSTICK_PRESS) {
+                // Enable/disable debug.
                 debug_state = !debug_state;
             }
         }

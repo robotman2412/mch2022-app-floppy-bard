@@ -37,6 +37,8 @@ struct bard {
     float    level_vel;
     // The distance between poles.
     float    pole_dist;
+    // The gap of new poles.
+    float    pole_gap;
     // Whether the game is paused.
     bool     paused;
     /* ==== Scoring ==== */
