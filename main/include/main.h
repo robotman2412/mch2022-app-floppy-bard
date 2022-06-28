@@ -37,6 +37,8 @@ struct bard {
     float    level_vel;
     // The distance between poles.
     float    pole_dist;
+    // Whether the game is paused.
+    bool     paused;
     /* ==== Scoring ==== */
     // Current score.
     uint64_t score;
@@ -72,7 +74,7 @@ void set_hiscore(uint64_t newscore);
 const char *text_hiscore();
 
 void draw_title(pax_col_t col, const char *title, const char *subtitle);
-void draw_bard(float x, float y, float angle);
+void draw_bard(bard_t *bard);
 void render_pole(bard_t *bard, pole_t *pole);
 void draw_background();
 
