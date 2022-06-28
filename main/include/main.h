@@ -22,29 +22,46 @@ typedef struct pole pole_t;
 
 struct bard {
     /* ==== Position ==== */
+    // The bard's position on screen.
     float    x, y;
+    // The bard's vertical velocity.
     float    vel;
+    // The bard's angle.
     float    angle;
     /* ==== Level state ==== */
+    // Whether the game is still going.
     bool     alive;
+    // The relative position of the level.
     float    level_pos;
+    // The speed at which the level scrolls by.
     float    level_vel;
+    // The distance between poles.
     float    pole_dist;
     /* ==== Scoring ==== */
+    // Current score.
     uint64_t score;
 };
 
 struct pole {
     /* ==== Linked list ==== */
+    // The previous pole in the linked list, if any.
     pole_t *prev;
+    // The next pole in the linked list, if any.
     pole_t *next;
     /* ==== Position ==== */
+    // The pole's position in the level.
     float   x, y;
+    // The pole's gap size.
     float   gap;
     /* ==== Miscellaneous ==== */
+    // The visual variation of the pole.
     int     variant;
+    // Whether the pole has been added to the score yet.
     bool    counted;
+    // Whether the pole has exited from the left of the screen.
     bool    offscreen;
+    // Whether the pole has entered from the right of the screen.
+    bool    onscreen;
 };
 
 void disp_flush();

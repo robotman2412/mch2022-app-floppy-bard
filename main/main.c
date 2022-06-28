@@ -140,6 +140,11 @@ void render_pole(bard_t *bard, pole_t *pole) {
         pole->offscreen = true;
     }
     
+    // Test whether the POLE is on the screen to the RIGHT.
+    if (pole->x - bard->level_pos < buf.width) {
+        pole->onscreen = true;
+    }
+    
     // Test whether POLE is approximately IN RANGE.
     if (x > HITBOX_RADIUS - POLE_LENIENCE) return;
     if (x < HITBOX_RADIUS + POLE_LENIENCE - POLE_WIDTH) {
@@ -238,14 +243,18 @@ void ingame() {
     bard.level_vel = 5;
     bard.pole_dist = 300;
     
+    // Initial pole.
     pole_t *poles  = malloc(sizeof(pole_t));
     *poles = (pole_t) {
+        .prev      = NULL,
+        .next      = NULL,
         .x         = 400,
         .y         = 80,
         .gap       = 70,
         .variant   = 0,
         .counted   = false,
         .offscreen = false,
+        .onscreen  = false,
     };
     
     while (1) {
@@ -283,8 +292,41 @@ void ingame() {
             // Level physics.
             if (bard.alive) {
                 bard.level_pos += bard.level_vel;
+                
+                // Check whether a pole must be removed.
+                if (poles->offscreen) {
+                    // Unlink it from the list.
+                    void *to_free = poles;
+                    poles->next->prev = NULL;
+                    poles = poles->next;
+                    free(to_free);
+                }
+                
                 for (pole_t *cur = poles; cur; cur = cur->next) {
                     render_pole(&bard, cur);
+                    
+                    // Check whether a pole must be added.
+                    if (!cur->next && cur->onscreen) {
+                        // Add the next pole.
+                        pole_t *next = malloc(sizeof(pole_t));
+                        *next = (pole_t) {
+                            .prev      = cur,
+                            .next      = NULL,
+                            .x         = cur->x + POLE_WIDTH + bard.pole_dist,
+                            .gap       = 70,
+                            .variant   = 0,
+                            .counted   = false,
+                            .offscreen = false,
+                            .onscreen  = false,
+                        };
+                        // Randomise it's vertical position.
+                        next->y = esp_random() / (float) UINT32_MAX;
+                        const float bottom = buf.height - 30 - POLE_LENIENCE * 2;
+                        const float top    = POLE_LENIENCE * 2 + next->gap;
+                        next->y = top + (bottom - top) * next->y;
+                        // Link it to the list.
+                        cur->next = next;
+                    }
                 }
             }
         }
