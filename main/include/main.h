@@ -18,3 +18,9 @@
 
 void disp_flush();
 void exit_to_launcher();
+
+void draw_title(pax_col_t col, const char *title, const char *subtitle);
+void draw_bard(float x, float y, float angle);
+void draw_background();
+
+void mainmenu();
