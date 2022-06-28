@@ -10,7 +10,7 @@ static nvs_handle_t game_nvs;
 static pax_buf_t buf;
 xQueueHandle buttonQueue;
 
-#define JUMP_HEIGHT  -6
+#define JUMP_HEIGHT  -8
 #define GRAVITY       2.0
 #define HITBOX_RADIUS 15
 #define POLE_LENIENCE 7
@@ -22,6 +22,7 @@ xQueueHandle buttonQueue;
 #define INITIAL_POLE_DIST 250
 #define MIN_POLE_DIST     70
 #define DIFF_INC_EVERY    1
+#define DIFF_FACTOR       0.1
 
 #define SHOW_HITBOXES(bard) (debug_state)
 #define DO_DEBUG(bard) ((bard)->paused && debug_state)
@@ -256,8 +257,9 @@ void ingame() {
     // Level position.
     bard.level_pos = 0;
     bard.level_vel = 5;
-    bard.pole_dist = MIN_POLE_DIST;
-    bard.pole_gap  = MIN_POLE_GAP;
+    bard.pole_dist = INITIAL_POLE_DIST;
+    bard.pole_gap  = INITIAL_POLE_GAP;
+    bard.next_diff = DIFF_INC_EVERY;
     
     // Initial pole.
     pole_t *poles  = malloc(sizeof(pole_t));
@@ -372,6 +374,13 @@ void ingame() {
         snprintf(temp, 16, "%lld", bard.score);
         pax_center_text(&buf, 0xff000000, font_big, 35, buf.width/2, 5, temp);
         disp_flush();
+        
+        // Increasing difficulty.
+        if (bard.score >= bard.next_diff) {
+            bard.next_diff += DIFF_INC_EVERY;
+            bard.pole_dist += (MIN_POLE_DIST - bard.pole_dist) * DIFF_FACTOR;
+            bard.pole_gap  += (MIN_POLE_GAP  - bard.pole_gap ) * DIFF_FACTOR;
+        }
         
         // Game over delay.
         if (!bard.alive) {

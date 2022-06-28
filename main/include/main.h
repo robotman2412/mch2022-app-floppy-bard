@@ -41,9 +41,11 @@ struct bard {
     float    pole_gap;
     // Whether the game is paused.
     bool     paused;
-    /* ==== Scoring ==== */
+    /* ==== Miscellaneous ==== */
     // Current score.
     uint64_t score;
+    // Next score to increase difficulty after.
+    uint64_t next_diff;
 };
 
 struct pole {
