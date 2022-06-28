@@ -21,7 +21,7 @@ xQueueHandle buttonQueue;
 #define MIN_POLE_GAP      50
 #define INITIAL_POLE_DIST 250
 #define MIN_POLE_DIST     70
-#define DIFF_INC_EVERY    1
+#define DIFF_INC_EVERY    2
 #define DIFF_FACTOR       0.1
 
 #define SHOW_HITBOXES(bard) (debug_state)
