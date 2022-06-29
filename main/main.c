@@ -4,36 +4,21 @@
 #include "main.h"
 
 static uint64_t priv_hiscore;
-static const pax_font_t *font_big;
-static const pax_font_t *font_small;
-static nvs_handle_t game_nvs;
-static pax_buf_t buf;
+const pax_font_t *font_big;
+const pax_font_t *font_small;
+nvs_handle_t game_nvs;
+pax_buf_t buf;
 xQueueHandle buttonQueue;
 
-#define JUMP_HEIGHT  -8
-#define GRAVITY       2.0
-#define HITBOX_RADIUS 15
-#define POLE_LENIENCE 7
-#define POLE_WIDTH    50
-#define EXIT_TIME     1000
+static const char *TAG = "main";
+bool debug_state = false;
 
-#define INITIAL_POLE_GAP  90
-#define MIN_POLE_GAP      50
-#define INITIAL_POLE_DIST 250
-#define MIN_POLE_DIST     70
-#define DIFF_INC_EVERY    2
-#define DIFF_FACTOR       0.1
-
-#define SHOW_HITBOXES(bard) (debug_state)
-#define DO_DEBUG(bard) ((bard)->paused && debug_state)
-
-static const char *TAG = "floppy-bard-app";
-static bool debug_state = false;
-
+// Flush the buffer to screen.
 void disp_flush() {
     ili9341_write(get_ili9341(), buf.buf);
 }
 
+// Exit to the launcher.
 void exit_to_launcher() {
     REG_WRITE(RTC_CNTL_STORE0_REG, 0);
     for (int i = 0; i < 10; i++) {
@@ -70,6 +55,7 @@ void app_main() {
 
 
 
+// Gets or reads from NVS, the high score.
 uint64_t get_hiscore() {
     static bool     read  = false;
     if (!game_nvs) return 0;
@@ -82,12 +68,14 @@ uint64_t get_hiscore() {
     return priv_hiscore;
 }
 
+// Update in NVS, the new high score.
 void set_hiscore(uint64_t newscore) {
     priv_hiscore = newscore;
     esp_err_t res = nvs_set_u64(game_nvs, "fbird_hiscore", newscore);
     nvs_commit(game_nvs);
 }
 
+// Get text in the format "High score: %d".
 const char *text_hiscore() {
     static char buffer[32];
     static uint64_t last_written = -1;
@@ -100,44 +88,15 @@ const char *text_hiscore() {
     return buffer;
 }
 
-
-
+// Draws a title and optional subtitle in the middle of the screen.
 void draw_title(pax_col_t col, const char *title, const char *subtitle) {
     pax_center_text(&buf, col, font_big, 35, buf.width/2, buf.height/2-35, title);
     pax_center_text(&buf, col, font_small, 18, buf.width/2, buf.height/2, subtitle);
 }
 
-void draw_bard(bard_t *bard) {
-    pax_push_2d(&buf);
-    pax_apply_2d(&buf, matrix_2d_translate(bard->x, bard->y));
-    pax_apply_2d(&buf, matrix_2d_rotate(bard->angle));
-    pax_draw_rect(&buf, 0xffff0000, -15, -15, 30, 30);
-    pax_pop_2d(&buf);
-    if (SHOW_HITBOXES(bard)) {
-        pax_outline_rect(&buf, -1, bard->x-HITBOX_RADIUS, bard->y-HITBOX_RADIUS, HITBOX_RADIUS*2, HITBOX_RADIUS*2);
-    }
-}
 
-void draw_pole(bard_t *bard, pole_t *pole) {
-    // Find relative position.
-    float x   = pole->x - bard->level_pos;
-    float y   = pole->y;
-    float gap = pole->gap;
-    
-    // Draw.
-    pax_col_t col = 0xff00ff00;
-    pax_draw_rect(&buf, col, x, 0, POLE_WIDTH, y - gap);
-    pax_draw_rect(&buf, col, x, y, POLE_WIDTH, buf.height - y - 30);
-    
-    // Hitbox visualisation.
-    x -= bard->x;
-    if (SHOW_HITBOXES(bard)) {
-        x += bard->x;
-        pax_outline_rect(&buf, -1, x+POLE_LENIENCE, 0, POLE_WIDTH-POLE_LENIENCE*2, y - gap - POLE_LENIENCE);
-        pax_outline_rect(&buf, -1, x+POLE_LENIENCE, y+POLE_LENIENCE, POLE_WIDTH-POLE_LENIENCE*2, buf.height - y - 30 - POLE_LENIENCE);
-    }
-}
 
+// Renders pole physics.
 void render_pole(bard_t *bard, pole_t *pole) {
     // Find relative position.
     float x   = pole->x - bard->level_pos - bard->x;
@@ -188,29 +147,41 @@ void render_pole(bard_t *bard, pole_t *pole) {
     if (collision) {
         bard->alive = false;
         if (hits_edge) {
+            // Bounce off the edge.
             bard->x   = pole->x - bard->level_pos + POLE_LENIENCE - HITBOX_RADIUS-0.1;
             bard->vel = 0.1;
+            particle_spread(
+                PARTICLE_DUST(pole->x, bard->y),
+                10,
+                0, 10, REPEL_RECTANGULAR
+            );
         } else if (hits_top) {
             bard->y   = pole->y - pole->gap - POLE_LENIENCE + HITBOX_RADIUS;
             // Bounce off the ceiling.
             bard->vel = -JUMP_HEIGHT;
+            particle_spread(
+                PARTICLE_DUST(bard->x + bard->level_pos, pole->y - pole->gap),
+                10,
+                10, 0, REPEL_RECTANGULAR
+            );
         } else if (hits_bottom) {
             bard->y = pole->y + POLE_LENIENCE - HITBOX_RADIUS;
             // Bounce off the floor.
             bard->vel *= -0.5;
             bard->vel += GRAVITY*3;
             if (bard->vel > 0) bard->vel = 0;
+            else {
+                particle_spread(
+                    PARTICLE_DUST(bard->x + bard->level_pos, pole->y),
+                    10,
+                    10, 0, REPEL_RECTANGULAR
+                );
+            }
         }
     }
 }
 
-void draw_background() {
-    pax_background(&buf, 0xff00e0f0);
-    pax_simple_rect(&buf, 0xff009000, 0, buf.height-30, buf.width, 30);
-}
-
-
-
+// Main menu loop.
 void mainmenu() {
     while (1) {
         uint64_t now = esp_timer_get_time() / 1000;
@@ -240,26 +211,34 @@ void mainmenu() {
     }
 }
 
+// Level loop.
 void ingame() {
     uint64_t exit_time = 0;
     bard_t bard;
-    bard.score = 0;
+    
+    particle_clear();
     
     // Set initial position equal to main menu.
-    uint64_t now   = esp_timer_get_time() / 1000;
-    bard.x         = 50;
-    bard.y         = 50+sinf(now * M_PI / 2000)*10;
-    bard.angle     = sinf(now*M_PI/1000)*M_PI/32;
+    uint64_t start    = esp_timer_get_time() / 1000;
+    uint64_t now      = start;
+    bard.x            = 50;
+    bard.y            = 50 + sinf(now * M_PI / 2000) * 10;
+    bard.angle        = sinf(now * M_PI / 1000) * M_PI / 32;
     // Start unpaused while jumping.
-    bard.vel       = JUMP_HEIGHT;
-    bard.paused    = false;
-    bard.alive     = true;
+    bard.vel          = JUMP_HEIGHT;
+    bard.paused       = false;
+    bard.alive        = true;
     // Level position.
-    bard.level_pos = 0;
-    bard.level_vel = 5;
-    bard.pole_dist = INITIAL_POLE_DIST;
-    bard.pole_gap  = INITIAL_POLE_GAP;
-    bard.next_diff = DIFF_INC_EVERY;
+    bard.level_pos    = 0;
+    bard.level_vel    = 5;
+    // Difficulty curves.
+    bard.pole_dist    = INITIAL_POLE_DIST;
+    bard.pole_gap     = INITIAL_POLE_GAP;
+    bard.next_diff    = DIFF_INC_EVERY;
+    // Miscellaneous.
+    bard.pole_variant = random_variant(-1);
+    bard.score        = 0;
+    bard.num_poles    = 1;
     
     // Initial pole.
     pole_t *poles  = malloc(sizeof(pole_t));
@@ -269,7 +248,7 @@ void ingame() {
         .x         = 400,
         .y         = 100,
         .gap       = bard.pole_gap,
-        .variant   = 0,
+        .variant   = bard.pole_variant,
         .counted   = false,
         .offscreen = false,
         .onscreen  = false,
@@ -296,6 +275,13 @@ void ingame() {
                 bard.vel *= -0.5;
                 bard.vel += GRAVITY*3;
                 if (bard.vel > 0) bard.vel = 0;
+                else {
+                    particle_spread(
+                        PARTICLE_DUST(bard.x + bard.level_pos, buf.height - 30),
+                        10,
+                        10, 0, REPEL_RECTANGULAR
+                    );
+                }
                 // Game over.
                 bard.alive = false;
             }
@@ -333,7 +319,7 @@ void ingame() {
                         .next      = NULL,
                         .x         = cur->x + POLE_WIDTH + bard.pole_dist,
                         .gap       = bard.pole_gap,
-                        .variant   = 0,
+                        .variant   = bard.pole_variant,
                         .counted   = false,
                         .offscreen = false,
                         .onscreen  = false,
@@ -345,8 +331,13 @@ void ingame() {
                     next->y = top + (bottom - top) * next->y;
                     // Link it to the list.
                     cur->next = next;
+                    // Keep track of number of poles added.
+                    bard.num_poles ++;
                 }
             }
+            
+            // Particle physics.
+            render_particles(&bard);
         }
         
         // Draw scene.
@@ -355,6 +346,7 @@ void ingame() {
             draw_pole(&bard, cur);
         }
         draw_bard(&bard);
+        draw_particles(&bard);
         
         // Text
         if (bard.paused) {
@@ -363,7 +355,7 @@ void ingame() {
                 &buf, 0xff000000, font_small, 18, buf.width/2, buf.height-18,
                 "🅰Jump and unpause  🅱Unpause"
             );
-        } else if (bard.alive) {
+        } else if (bard.alive && bard.score < 2) {
             pax_center_text(
                 &buf, 0xff000000, font_small, 18, buf.width/2, buf.height-18,
                 "🅰Jump  🅱Pause"
@@ -376,10 +368,11 @@ void ingame() {
         disp_flush();
         
         // Increasing difficulty.
-        if (bard.score >= bard.next_diff) {
+        if (bard.num_poles >= bard.next_diff) {
             bard.next_diff += DIFF_INC_EVERY;
             bard.pole_dist += (MIN_POLE_DIST - bard.pole_dist) * DIFF_FACTOR;
             bard.pole_gap  += (MIN_POLE_GAP  - bard.pole_gap ) * DIFF_FACTOR;
+            bard.pole_variant = random_variant(bard.pole_variant);
         }
         
         // Game over delay.

@@ -17,70 +17,26 @@
 #include "soc/rtc.h"
 #include "soc/rtc_cntl_reg.h"
 
-typedef struct bard bard_t;
-typedef struct pole pole_t;
+#include "types.h"
+#include "artwork.h"
 
-struct bard {
-    /* ==== Position ==== */
-    // The bard's position on screen.
-    float    x, y;
-    // The bard's vertical velocity.
-    float    vel;
-    // The bard's angle.
-    float    angle;
-    /* ==== Level state ==== */
-    // Whether the game is still going.
-    bool     alive;
-    // The relative position of the level.
-    float    level_pos;
-    // The speed at which the level scrolls by.
-    float    level_vel;
-    // The distance between poles.
-    float    pole_dist;
-    // The gap of new poles.
-    float    pole_gap;
-    // Whether the game is paused.
-    bool     paused;
-    /* ==== Miscellaneous ==== */
-    // Current score.
-    uint64_t score;
-    // Next score to increase difficulty after.
-    uint64_t next_diff;
-};
-
-struct pole {
-    /* ==== Linked list ==== */
-    // The previous pole in the linked list, if any.
-    pole_t *prev;
-    // The next pole in the linked list, if any.
-    pole_t *next;
-    /* ==== Position ==== */
-    // The pole's position in the level.
-    float   x, y;
-    // The pole's gap size.
-    float   gap;
-    /* ==== Miscellaneous ==== */
-    // The visual variation of the pole.
-    int     variant;
-    // Whether the pole has been added to the score yet.
-    bool    counted;
-    // Whether the pole has exited from the left of the screen.
-    bool    offscreen;
-    // Whether the pole has entered from the right of the screen.
-    bool    onscreen;
-};
-
+// Flush the buffer to screen.
 void disp_flush();
+// Exit to the launcher.
 void exit_to_launcher();
 
+// Gets or reads from NVS, the high score.
 uint64_t get_hiscore();
+// Update in NVS, the new high score.
 void set_hiscore(uint64_t newscore);
+// Get text in the format "High score: %d".
 const char *text_hiscore();
-
+// Draws a title and optional subtitle in the middle of the screen.
 void draw_title(pax_col_t col, const char *title, const char *subtitle);
-void draw_bard(bard_t *bard);
-void render_pole(bard_t *bard, pole_t *pole);
-void draw_background();
 
+// Renders pole physics.
+void render_pole(bard_t *bard, pole_t *pole);
+// Main menu loop.
 void mainmenu();
+// Level loop.
 void ingame();
